@@ -83,8 +83,8 @@ export const checkCollision = (rect1, rect2) => {
 
 // Game physics constants with Flappy Bird-style mechanics
 export const PHYSICS = {
-  GRAVITY: 0.8,                    // Increased gravity for faster falling
-  FLAP_STRENGTH: -11,              // Increased flap strength for higher jumps
+  GRAVITY: 1,                    // Increased gravity for faster falling
+  FLAP_STRENGTH: -12,              // Increased flap strength for higher jumps
   BASE_TOWER_SPEED: 2.5,           // Slightly faster movement
   GROUND_HEIGHT: 60,
   MAX_FALL_SPEED: 12,              // Increased terminal velocity for faster falling
