@@ -7,7 +7,8 @@ import {
   PHYSICS,
   GAME_COLORS,
   initAudioContext,
-  getDifficultySettings
+  getDifficultySettings,
+  cleanupAudioResources
 } from '../utils/gameUtils';
 
 const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused }) => {
@@ -17,6 +18,10 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
   const gameStateRef = useRef(null);
   const scoredTowers = useRef(new Set()); // Track which towers have been scored
   const currentScore = useRef(0); // Simple score tracking
+  
+  // Memory cleanup tracking
+  const frameCount = useRef(0);
+  const lastMemoryCleanup = useRef(0);
   
   // Pre-cached constants for ultra performance
   const CACHED_CONSTANTS = useRef({
@@ -49,6 +54,34 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
   const returnToPool = useCallback((tower) => {
     if (towerPool.current.length < 10) { // Max pool size
       towerPool.current.push(tower);
+    }
+  }, []);
+
+  // Aggressive memory cleanup function
+  const performMemoryCleanup = useCallback(() => {
+    const now = Date.now();
+    
+    // Clean up every 5 seconds during gameplay
+    if (now - lastMemoryCleanup.current > 5000) {
+      lastMemoryCleanup.current = now;
+      
+      // Hint garbage collector (non-standard but helps in some browsers)
+      if (window.gc) {
+        window.gc();
+      }
+      
+      // Clean up excess tower pool objects
+      if (towerPool.current.length > 15) {
+        towerPool.current.splice(10);
+      }
+      
+      // Clean up scoredTowers Set if it's getting large
+      if (scoredTowers.current.size > 100) {
+        scoredTowers.current.clear();
+      }
+      
+      // Clean up audio resources
+      cleanupAudioResources();
     }
   }, []);
 
@@ -92,9 +125,14 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
   const initializeGame = useCallback(() => {
     const { width, height } = getCanvasDimensions();
     
-    // Reset scoring system
-    scoredTowers.current = new Set();
+    // AGGRESSIVE MEMORY RESET: Clear all accumulated data
+    scoredTowers.current.clear();
     currentScore.current = 0;
+    frameCount.current = 0;
+    lastMemoryCleanup.current = Date.now();
+    
+    // Clear tower pool to prevent accumulation
+    towerPool.current.length = 0;
     
     setGameState(prev => ({
       ...prev,
@@ -225,7 +263,7 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     };
   }, [flap, handleFirstInteraction]);
 
-  // Ultra-optimized game update with minimal allocations
+  // Ultra-optimized game update with memory leak fixes
   const updateGame = useCallback((deltaTime, canvasWidth, canvasHeight) => {
     if (isPaused) return;
 
@@ -286,11 +324,14 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
         newState.lastTowerX = newTower.x;
       }
 
-      // Ultra-optimized tower updates with minimal array operations
+      // Ultra-optimized tower updates with memory leak fixes
       const activeTowers = [];
       const towerSpeed = difficulty.towerSpeed;
       const falconRight = falcon.x + FALCON_WIDTH;
       const falconBottom = falcon.y + FALCON_HEIGHT;
+      
+      // Track towers to remove from scoredTowers Set (CRITICAL FIX)
+      const towersToRemoveFromScored = [];
       
       for (let i = 0; i < newState.towers.length; i++) {
         const tower = newState.towers[i];
@@ -323,13 +364,37 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
           }
         }
         
-        // Keep tower if still visible, otherwise return to pool
+        // Keep tower if still visible, otherwise return to pool AND clean up memory
         if (tower.x > -TOWER_WIDTH) {
           activeTowers.push(tower);
         } else {
+          // CRITICAL FIX: Remove tower ID from scoredTowers Set to prevent memory leak
+          towersToRemoveFromScored.push(tower.id);
           returnToPool(tower);
         }
       }
+      
+      // CRITICAL FIX: Clean up scoredTowers Set to prevent infinite memory growth
+      for (let i = 0; i < towersToRemoveFromScored.length; i++) {
+        scoredTowers.current.delete(towersToRemoveFromScored[i]);
+      }
+      
+      // AGGRESSIVE MEMORY CLEANUP: If Set gets too large, clean up old entries
+      if (scoredTowers.current.size > 50) {
+        const currentTowerIds = new Set();
+        for (let i = 0; i < activeTowers.length; i++) {
+          currentTowerIds.add(activeTowers[i].id);
+        }
+        
+        // Remove scored tower IDs that no longer exist in active towers
+        const scoredIds = Array.from(scoredTowers.current);
+        for (let i = 0; i < scoredIds.length; i++) {
+          if (!currentTowerIds.has(scoredIds[i])) {
+            scoredTowers.current.delete(scoredIds[i]);
+          }
+        }
+      }
+      
       newState.towers = activeTowers;
 
       // Fast screen shake reduction
@@ -393,7 +458,7 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     context.restore();
   }, []);
 
-  // Ultra-optimized render function with minimal state changes
+  // Ultra-optimized render function with memory management
   const render = useCallback((canvasWidth, canvasHeight, currentTime = 0) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -409,6 +474,14 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     const context = ctx.current;
     const currentState = gameStateRef.current;
     if (!currentState) return;
+
+    // Increment frame counter for memory management
+    frameCount.current++;
+    
+    // Perform memory cleanup periodically (every ~300 frames = ~5 seconds at 60fps)
+    if (frameCount.current % 300 === 0) {
+      performMemoryCleanup();
+    }
 
     const { TOWER_WIDTH, GROUND_Y_OFFSET } = CACHED_CONSTANTS.current;
 
@@ -489,9 +562,9 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     drawFalcon(context, currentState.falcon);
 
     context.restore();
-  }, [drawFalcon]);
+  }, [drawFalcon, performMemoryCleanup]);
 
-  // High-performance game loop
+  // High-performance game loop with memory management
   const gameLoop = useCallback((currentTime) => {
     // Aggressive frame limiting for consistent performance
     if (currentTime - lastRenderTime.current < FRAME_TIME) {
@@ -512,7 +585,7 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [updateGame, render]);
 
-  // Start game loop
+  // Start game loop with cleanup
   useEffect(() => {
     const { width, height } = getCanvasDimensions();
     
@@ -530,8 +603,12 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      
+      // Cleanup on unmount
+      performMemoryCleanup();
+      cleanupAudioResources();
     };
-  }, [gameLoop]);
+  }, [gameLoop, performMemoryCleanup]);
 
   return (
     <canvas

@@ -5,16 +5,32 @@
 let audioContext = null;
 let gainNodePool = []; // Pool gain nodes for reuse
 let oscillatorCache = {}; // Cache oscillator properties
+let audioCleanupInterval = null; // Periodic cleanup
 
 // Initialize audio context (required for mobile browsers)
 export const initAudioContext = () => {
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Start periodic cleanup to prevent memory leaks
+    if (!audioCleanupInterval) {
+      audioCleanupInterval = setInterval(() => {
+        // Aggressive cleanup: limit gain node pool size
+        if (gainNodePool.length > 15) {
+          gainNodePool.splice(10); // Keep only 10 nodes
+        }
+        
+        // Clear oscillator cache periodically
+        if (Object.keys(oscillatorCache).length > 20) {
+          oscillatorCache = {};
+        }
+      }, 10000); // Clean up every 10 seconds
+    }
   }
   return audioContext;
 };
 
-// Optimized sound generation with object pooling
+// Ultra-optimized sound generation with aggressive memory management
 export const playSound = (frequency, duration, type = 'sine', volume = 0.1) => {
   if (!audioContext) {
     initAudioContext();
@@ -23,10 +39,13 @@ export const playSound = (frequency, duration, type = 'sine', volume = 0.1) => {
   try {
     const oscillator = audioContext.createOscillator();
     
-    // Reuse gain node from pool or create new one
+    // Reuse gain node from pool or create new one (with strict limits)
     let gainNode;
     if (gainNodePool.length > 0) {
       gainNode = gainNodePool.pop();
+      // Reset gain node state
+      gainNode.gain.cancelScheduledValues(0);
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
     } else {
       gainNode = audioContext.createGain();
     }
@@ -45,17 +64,36 @@ export const playSound = (frequency, duration, type = 'sine', volume = 0.1) => {
     oscillator.start(currentTime);
     oscillator.stop(currentTime + duration);
     
-    // Return gain node to pool after use
+    // Return gain node to pool after use with strict memory management
+    const cleanupDelay = (duration + 0.1) * 1000;
     setTimeout(() => {
-      if (gainNodePool.length < 10) { // Limit pool size
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNodePool.push(gainNode);
+      try {
+        if (gainNodePool.length < 8) { // Reduced pool size for better memory management
+          gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+          gainNodePool.push(gainNode);
+        } else {
+          // Disconnect and let garbage collector handle it
+          gainNode.disconnect();
+        }
+      } catch (e) {
+        // Ignore cleanup errors to prevent crashes
       }
-    }, (duration + 0.1) * 1000);
+    }, cleanupDelay);
     
   } catch (error) {
     // Fail silently in production for performance
     // console.warn('Audio playback failed:', error);
+  }
+};
+
+// Cleanup function for memory management
+export const cleanupAudioResources = () => {
+  gainNodePool.length = 0;
+  oscillatorCache = {};
+  
+  if (audioCleanupInterval) {
+    clearInterval(audioCleanupInterval);
+    audioCleanupInterval = null;
   }
 };
 
