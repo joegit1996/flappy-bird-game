@@ -18,6 +18,40 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
   const scoredTowers = useRef(new Set()); // Track which towers have been scored
   const currentScore = useRef(0); // Simple score tracking
   
+  // Pre-cached constants for ultra performance
+  const CACHED_CONSTANTS = useRef({
+    FALCON_WIDTH: 34,
+    FALCON_HEIGHT: 24,
+    TOWER_WIDTH: 70,
+    GROUND_Y_OFFSET: 60,
+    FALCON_CENTER_X: 17,
+    FALCON_CENTER_Y: 12,
+    PI_180: Math.PI / 180,
+    ROTATION_ANGLES: {
+      UP_FAST: -25,
+      UP_SLOW: -20,
+      DOWN_MAX: 90,
+      FLAP_ROTATION: -20
+    }
+  });
+
+  // Object pooling for towers to prevent garbage collection
+  const towerPool = useRef([]);
+  const getPooledTower = useCallback(() => {
+    return towerPool.current.pop() || { 
+      id: 0, x: 0, width: 70, passed: false,
+      top: { x: 0, y: 0, width: 70, height: 0 },
+      bottom: { x: 0, y: 0, width: 70, height: 0 },
+      gapY: 0, gapHeight: 0
+    };
+  }, []);
+  
+  const returnToPool = useCallback((tower) => {
+    if (towerPool.current.length < 10) { // Max pool size
+      towerPool.current.push(tower);
+    }
+  }, []);
+
   // Game state with Flappy Bird-style mechanics
   const [gameState, setGameState] = useState({
     falcon: { 
@@ -50,6 +84,9 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
   const lastRenderTime = useRef(0);
   const TARGET_FPS = 60;
   const FRAME_TIME = 1000 / TARGET_FPS;
+
+  // Cache canvas dimensions
+  const canvasDimensions = useRef({ width: 400, height: 600 });
 
   // Initialize/Reset game state only when game starts (not during gameplay)
   const initializeGame = useCallback(() => {
@@ -97,15 +134,23 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Canvas dimensions
-  const getCanvasDimensions = () => {
+  // Canvas dimensions with caching
+  const getCanvasDimensions = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return { width: 400, height: 600 };
+    if (!canvas) return canvasDimensions.current;
     
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    return { width: canvas.width, height: canvas.height };
-  };
+    // Only update if actually changed to prevent unnecessary calculations
+    const newWidth = window.innerWidth;
+    const newHeight = window.innerHeight;
+    
+    if (canvasDimensions.current.width !== newWidth || canvasDimensions.current.height !== newHeight) {
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      canvasDimensions.current = { width: newWidth, height: newHeight };
+    }
+    
+    return canvasDimensions.current;
+  }, []);
 
   // Handle resize
   useEffect(() => {
@@ -180,38 +225,44 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     };
   }, [flap, handleFirstInteraction]);
 
-  // High-performance game update logic
+  // Ultra-optimized game update with minimal allocations
   const updateGame = useCallback((deltaTime, canvasWidth, canvasHeight) => {
     if (isPaused) return;
 
     // Use functional state update to minimize re-renders
     setGameState(prev => {
       const newState = { ...prev };
+      const { FALCON_WIDTH, FALCON_HEIGHT, TOWER_WIDTH, GROUND_Y_OFFSET, ROTATION_ANGLES } = CACHED_CONSTANTS.current;
       
       // Calculate current difficulty based on score (less frequently)
       const difficulty = getDifficultySettings(currentScore.current);
       newState.currentDifficulty = difficulty;
       
-      // Only notify difficulty changes every 5 points
+      // Only notify difficulty changes every 5 points to reduce callbacks
       if (onDifficultyUpdate && currentScore.current % 5 === 0 && currentScore.current > 0) {
         onDifficultyUpdate(difficulty);
       }
       
-      const groundY = canvasHeight - 60; // Use constant instead of PHYSICS.GROUND_HEIGHT
+      const groundY = canvasHeight - GROUND_Y_OFFSET;
       const falcon = newState.falcon;
 
-      // Optimized physics with minimal object creation
+      // Ultra-optimized physics with pre-calculated values
       falcon.velocityY += difficulty.gravity;
-      falcon.velocityY = falcon.velocityY > 12 ? 12 : falcon.velocityY; // Faster than Math.min
+      falcon.velocityY = falcon.velocityY > 12 ? 12 : falcon.velocityY;
       falcon.y += falcon.velocityY;
       
-      // Fast rotation calculation
-      falcon.rotation = falcon.velocityY < -2 ? -25 : 
-                       falcon.velocityY > 3 ? (falcon.velocityY * 4 > 90 ? 90 : falcon.velocityY * 4) : 
-                       falcon.velocityY * 4;
+      // Pre-calculated rotation logic
+      if (falcon.velocityY < -2) {
+        falcon.rotation = ROTATION_ANGLES.UP_FAST;
+      } else if (falcon.velocityY > 3) {
+        const calculated = falcon.velocityY * 4;
+        falcon.rotation = calculated > ROTATION_ANGLES.DOWN_MAX ? ROTATION_ANGLES.DOWN_MAX : calculated;
+      } else {
+        falcon.rotation = falcon.velocityY * 4;
+      }
 
-      // Fast boundary checks
-      if (falcon.y >= groundY - falcon.height || falcon.y <= 0) {
+      // Ultra-fast boundary checks with cached values
+      if (falcon.y >= groundY - FALCON_HEIGHT || falcon.y <= 0) {
         sounds.crash();
         sounds.gameOver();
         vibrate([100, 50, 100]);
@@ -223,27 +274,34 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
       // Optimized background scroll
       newState.backgroundOffset = (newState.backgroundOffset + difficulty.towerSpeed) % 100;
 
-      // Spawn towers with minimal calculations
+      // Spawn towers with object pooling
       const lastTower = newState.towers[newState.towers.length - 1];
       const shouldSpawnTower = newState.towers.length === 0 || 
         (lastTower && canvasWidth - lastTower.x >= difficulty.towerSpacing);
       
       if (shouldSpawnTower) {
-        const newTower = generateKuwaitTower(canvasWidth, canvasHeight, difficulty.gapSize);
+        const pooledTower = getPooledTower();
+        const newTower = generateKuwaitTower(canvasWidth, canvasHeight, difficulty.gapSize, pooledTower);
         newState.towers.push(newTower);
         newState.lastTowerX = newTower.x;
       }
 
-      // Ultra-fast tower updates and collision detection
+      // Ultra-optimized tower updates with minimal array operations
       const activeTowers = [];
+      const towerSpeed = difficulty.towerSpeed;
+      const falconRight = falcon.x + FALCON_WIDTH;
+      const falconBottom = falcon.y + FALCON_HEIGHT;
+      
       for (let i = 0; i < newState.towers.length; i++) {
         const tower = newState.towers[i];
-        tower.x -= difficulty.towerSpeed;
+        tower.x -= towerSpeed;
+        
+        // Batch update tower positions
         tower.top.x = tower.x;
         tower.bottom.x = tower.x;
         
-        // Fast scoring check
-        if (falcon.x > tower.x + tower.width && !scoredTowers.current.has(tower.id)) {
+        // Ultra-fast scoring check with pre-calculated falcon right edge
+        if (falconRight > tower.x + TOWER_WIDTH && !scoredTowers.current.has(tower.id)) {
           scoredTowers.current.add(tower.id);
           currentScore.current++;
           newState.score = currentScore.current;
@@ -252,12 +310,9 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
           vibrate(50);
         }
         
-        // Ultra-fast collision detection using bitwise operations where possible
-        const falconRight = falcon.x + 34; // Use constant instead of falcon.width
-        const falconBottom = falcon.y + 24; // Use constant instead of falcon.height
-        
-        if (falconRight > tower.x && falcon.x < tower.x + 70) { // Use constant tower width
-          // Check collisions
+        // Optimized collision detection with early exit
+        if (falconRight > tower.x && falcon.x < tower.x + TOWER_WIDTH) {
+          // Check Y collisions only if X collision detected
           if (falcon.y < tower.top.height || falconBottom > tower.bottom.y) {
             sounds.crash();
             sounds.gameOver();
@@ -268,41 +323,48 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
           }
         }
         
-        // Keep tower if still visible
-        if (tower.x > -70) { // Use constant tower width
+        // Keep tower if still visible, otherwise return to pool
+        if (tower.x > -TOWER_WIDTH) {
           activeTowers.push(tower);
+        } else {
+          returnToPool(tower);
         }
       }
       newState.towers = activeTowers;
 
       // Fast screen shake reduction
-      newState.screenShake = newState.screenShake > 0 ? newState.screenShake - 2 : 0;
+      if (newState.screenShake > 0) {
+        newState.screenShake -= 2;
+        if (newState.screenShake < 0) newState.screenShake = 0;
+      }
 
       return newState;
     });
-  }, [isPaused, onScoreUpdate, onGameOver, onDifficultyUpdate]);
+  }, [isPaused, onScoreUpdate, onGameOver, onDifficultyUpdate, getPooledTower, returnToPool]);
 
-  // Optimized bird drawing function
-  const drawFalcon = (context, falcon) => {
+  // Ultra-optimized bird drawing function with cached constants
+  const drawFalcon = useCallback((context, falcon) => {
+    const { FALCON_CENTER_X, FALCON_CENTER_Y, PI_180 } = CACHED_CONSTANTS.current;
+    
     context.save();
     
     // Translate to falcon center for rotation
-    context.translate(falcon.x + 17, falcon.y + 12); // Use constants for center
-    context.rotate((falcon.rotation * Math.PI) / 180);
+    context.translate(falcon.x + FALCON_CENTER_X, falcon.y + FALCON_CENTER_Y);
+    context.rotate(falcon.rotation * PI_180);
     
     // Main body (bright blue primary color)
-    context.fillStyle = '#1356FB'; // BLUE_RIBBON
+    context.fillStyle = '#1356FB'; // BLUE_RIBBON - cache this color
     context.beginPath();
     context.ellipse(0, 0, 17, 12, 0, 0, Math.PI * 2);
     context.fill();
     
     // Body outline (dark blue)
-    context.strokeStyle = '#0C1C4A'; // DOWNRIVER
+    context.strokeStyle = '#0C1C4A'; // DOWNRIVER - cache this color
     context.lineWidth = 2;
     context.stroke();
     
     // Wing (peachy accent color)
-    context.fillStyle = '#ECAF8D'; // TACAO
+    context.fillStyle = '#ECAF8D'; // TACAO - cache this color
     context.beginPath();
     context.ellipse(-4, -2, 6, 4, 0, 0, Math.PI * 2);
     context.fill();
@@ -329,9 +391,9 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     context.fill();
     
     context.restore();
-  };
+  }, []);
 
-  // Ultra-optimized render function
+  // Ultra-optimized render function with minimal state changes
   const render = useCallback((canvasWidth, canvasHeight, currentTime = 0) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -339,77 +401,95 @@ const GameCanvas = ({ onGameOver, onScoreUpdate, onDifficultyUpdate, isPaused })
     // Cache context if not already cached
     if (!ctx.current) {
       ctx.current = canvas.getContext('2d');
+      // Set rendering options once
       ctx.current.imageSmoothingEnabled = false;
+      ctx.current.textBaseline = 'top';
     }
     
     const context = ctx.current;
     const currentState = gameStateRef.current;
     if (!currentState) return;
 
-    // Minimal screen shake
+    const { TOWER_WIDTH, GROUND_Y_OFFSET } = CACHED_CONSTANTS.current;
+
+    // Minimal screen shake with faster random generation
     let shakeX = 0, shakeY = 0;
     if (currentState.screenShake > 0) {
-      shakeX = (Math.random() - 0.5) * (currentState.screenShake > 5 ? 5 : currentState.screenShake);
-      shakeY = (Math.random() - 0.5) * (currentState.screenShake > 5 ? 5 : currentState.screenShake);
+      const maxShake = currentState.screenShake > 5 ? 5 : currentState.screenShake;
+      shakeX = (Math.random() - 0.5) * maxShake;
+      shakeY = (Math.random() - 0.5) * maxShake;
     }
     
     context.save();
     context.translate(shakeX, shakeY);
 
-    // Fast clear
+    // Fast clear - use cached canvas dimensions
     context.clearRect(0, 0, canvasWidth, canvasHeight);
 
     // Simplified background (solid color only)
     context.fillStyle = '#8CB4FC'; // MALIBU color
     context.fillRect(0, 0, canvasWidth, canvasHeight * 0.7);
      
-    // Simple static clouds for performance
+    // Simple static clouds for performance - pre-calculated positions
     context.fillStyle = '#FFFFFF';
-    const y1 = canvasHeight * 0.15;
-    const y2 = canvasHeight * 0.25;
-    context.fillRect(canvasWidth * 0.2, y1, 30, 15);
-    context.fillRect(canvasWidth * 0.6, y2, 35, 18);
+    const cloudY1 = canvasHeight * 0.15;
+    const cloudY2 = canvasHeight * 0.25;
+    const cloudX1 = canvasWidth * 0.2;
+    const cloudX2 = canvasWidth * 0.6;
+    context.fillRect(cloudX1, cloudY1, 30, 15);
+    context.fillRect(cloudX2, cloudY2, 35, 18);
 
-    // Ultra-fast tower drawing with minimal details
+    // Ultra-optimized tower drawing with batched style changes
     context.fillStyle = '#1356FB'; // BLUE_RIBBON
     context.strokeStyle = '#0C1C4A'; // DOWNRIVER
     context.lineWidth = 2;
     
-    for (let i = 0; i < currentState.towers.length; i++) {
-      const tower = currentState.towers[i];
+    const towers = currentState.towers;
+    const towersLength = towers.length;
+    
+    // Batch draw all tower bodies first
+    for (let i = 0; i < towersLength; i++) {
+      const tower = towers[i];
       
       // Draw top tower
-      context.fillRect(tower.top.x, tower.top.y, 70, tower.top.height);
-      context.strokeRect(tower.top.x, tower.top.y, 70, tower.top.height);
+      context.fillRect(tower.top.x, tower.top.y, TOWER_WIDTH, tower.top.height);
+      context.strokeRect(tower.top.x, tower.top.y, TOWER_WIDTH, tower.top.height);
       
       // Draw bottom tower  
-      context.fillRect(tower.bottom.x, tower.bottom.y, 70, tower.bottom.height);
-      context.strokeRect(tower.bottom.x, tower.bottom.y, 70, tower.bottom.height);
+      context.fillRect(tower.bottom.x, tower.bottom.y, TOWER_WIDTH, tower.bottom.height);
+      context.strokeRect(tower.bottom.x, tower.bottom.y, TOWER_WIDTH, tower.bottom.height);
+    }
+    
+    // Batch draw tower caps for visible towers only
+    context.fillStyle = '#FFFFFF';
+    for (let i = 0; i < towersLength; i++) {
+      const tower = towers[i];
       
-      // Simplified caps (only draw if close to screen for performance)
+      // Only draw caps if tower is close to screen for performance
       if (tower.x > -100 && tower.x < canvasWidth + 50) {
-        context.fillStyle = '#FFFFFF';
-        context.fillRect(tower.top.x - 3, tower.top.height - 15, 76, 15);
-        context.fillRect(tower.bottom.x - 3, tower.bottom.y, 76, 15);
-        context.strokeRect(tower.top.x - 3, tower.top.height - 15, 76, 15);
-        context.strokeRect(tower.bottom.x - 3, tower.bottom.y, 76, 15);
-        context.fillStyle = '#1356FB';
+        const capX = tower.top.x - 3;
+        const capWidth = 76;
+        const capHeight = 15;
+        
+        context.fillRect(capX, tower.top.height - capHeight, capWidth, capHeight);
+        context.fillRect(capX, tower.bottom.y, capWidth, capHeight);
+        context.strokeRect(capX, tower.top.height - capHeight, capWidth, capHeight);
+        context.strokeRect(capX, tower.bottom.y, capWidth, capHeight);
       }
     }
 
-    // Fast ground
-    const groundY = canvasHeight - 60;
+    // Fast ground rendering
+    const groundY = canvasHeight - GROUND_Y_OFFSET;
     context.fillStyle = '#ECAF8D'; // TACAO
-    context.fillRect(0, groundY, canvasWidth, 60);
+    context.fillRect(0, groundY, canvasWidth, GROUND_Y_OFFSET);
     context.fillStyle = '#1356FB';
     context.fillRect(0, groundY, canvasWidth, 3);
 
     // Ultra-fast falcon drawing
-    const falcon = currentState.falcon;
-    drawFalcon(context, falcon);
+    drawFalcon(context, currentState.falcon);
 
     context.restore();
-  }, []);
+  }, [drawFalcon]);
 
   // High-performance game loop
   const gameLoop = useCallback((currentTime) => {

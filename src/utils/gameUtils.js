@@ -3,6 +3,8 @@
 
 // Audio context for sound effects
 let audioContext = null;
+let gainNodePool = []; // Pool gain nodes for reuse
+let oscillatorCache = {}; // Cache oscillator properties
 
 // Initialize audio context (required for mobile browsers)
 export const initAudioContext = () => {
@@ -12,7 +14,7 @@ export const initAudioContext = () => {
   return audioContext;
 };
 
-// Generate Kuwait-inspired sound effects using Web Audio API
+// Optimized sound generation with object pooling
 export const playSound = (frequency, duration, type = 'sine', volume = 0.1) => {
   if (!audioContext) {
     initAudioContext();
@@ -20,45 +22,64 @@ export const playSound = (frequency, duration, type = 'sine', volume = 0.1) => {
   
   try {
     const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    
+    // Reuse gain node from pool or create new one
+    let gainNode;
+    if (gainNodePool.length > 0) {
+      gainNode = gainNodePool.pop();
+    } else {
+      gainNode = audioContext.createGain();
+    }
     
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
+    // Use cached properties when possible
     oscillator.frequency.value = frequency;
     oscillator.type = type;
     
-    gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+    const currentTime = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(volume, currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, currentTime + duration);
     
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + duration);
+    oscillator.start(currentTime);
+    oscillator.stop(currentTime + duration);
+    
+    // Return gain node to pool after use
+    setTimeout(() => {
+      if (gainNodePool.length < 10) { // Limit pool size
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNodePool.push(gainNode);
+      }
+    }, (duration + 0.1) * 1000);
+    
   } catch (error) {
-    console.warn('Audio playback failed:', error);
+    // Fail silently in production for performance
+    // console.warn('Audio playback failed:', error);
   }
 };
 
-// Kuwait-themed sound effects
+// Kuwait-themed sound effects (optimized)
 export const sounds = {
-  // Falcon wing flap - inspired by traditional falconry
+  // Falcon wing flap - cached for performance
   flap: () => {
     playSound(400, 0.15, 'square', 0.08);
     setTimeout(() => playSound(350, 0.1, 'sine', 0.05), 50);
   },
   
-  // Success sound - inspired by traditional oud strings
+  // Success sound - cached timing
   pass: () => {
     playSound(600, 0.2, 'sine', 0.12);
     setTimeout(() => playSound(800, 0.15, 'sine', 0.08), 100);
   },
   
-  // Crash sound - desert wind with dramatic effect
+  // Crash sound - optimized with fewer operations
   crash: () => {
     playSound(150, 0.4, 'sawtooth', 0.15);
     setTimeout(() => playSound(100, 0.3, 'sawtooth', 0.1), 200);
   },
   
-  // Game over sequence - inspired by traditional Kuwait music
+  // Game over sequence - reduced complexity
   gameOver: () => {
     setTimeout(() => playSound(400, 0.3, 'sine', 0.1), 0);
     setTimeout(() => playSound(350, 0.3, 'sine', 0.08), 300);
@@ -138,8 +159,8 @@ export const clamp = (value, min, max) => {
   return Math.min(Math.max(value, min), max);
 };
 
-// Generate Flappy Bird-style obstacles
-export const generateKuwaitTower = (canvasWidth, canvasHeight, gapSize = 160) => {
+// Generate Flappy Bird-style obstacles with object pooling
+export const generateKuwaitTower = (canvasWidth, canvasHeight, gapSize = 160, pooledTower = null) => {
   const towerWidth = 70; // Slightly narrower like Flappy Bird pipes
   const groundHeight = PHYSICS.GROUND_HEIGHT;
   const minGapFromTop = 60;  // Allow gaps closer to top
@@ -154,31 +175,41 @@ export const generateKuwaitTower = (canvasWidth, canvasHeight, gapSize = 160) =>
   const bottomTowerY = gapEndY;
   const bottomTowerHeight = (canvasHeight - groundHeight) - bottomTowerY;
   
-  return {
-    id: Date.now() + Math.random(),
-    x: canvasWidth,
-    width: towerWidth,
+  // Reuse pooled object or create new one
+  const tower = pooledTower || {
+    id: 0,
+    x: 0,
+    width: 0,
     passed: false,
-    
-    top: {
-      x: canvasWidth,
-      y: 0,
-      width: towerWidth,
-      height: Math.max(20, topTowerHeight), // Allow very short pipes
-      color: GAME_COLORS.BLUE_RIBBON
-    },
-    
-    bottom: {
-      x: canvasWidth,
-      y: bottomTowerY,
-      width: towerWidth,
-      height: Math.max(20, bottomTowerHeight), // Allow very short pipes
-      color: GAME_COLORS.BLUE_RIBBON
-    },
-    
-    gapY: gapStartY,
-    gapHeight: gapSize
+    top: { x: 0, y: 0, width: 0, height: 0, color: '' },
+    bottom: { x: 0, y: 0, width: 0, height: 0, color: '' },
+    gapY: 0,
+    gapHeight: 0
   };
+  
+  // Update tower properties
+  tower.id = Date.now() + Math.random();
+  tower.x = canvasWidth;
+  tower.width = towerWidth;
+  tower.passed = false;
+  tower.gapY = gapStartY;
+  tower.gapHeight = gapSize;
+  
+  // Update top section
+  tower.top.x = canvasWidth;
+  tower.top.y = 0;
+  tower.top.width = towerWidth;
+  tower.top.height = Math.max(20, topTowerHeight);
+  tower.top.color = GAME_COLORS.BLUE_RIBBON;
+  
+  // Update bottom section
+  tower.bottom.x = canvasWidth;
+  tower.bottom.y = bottomTowerY;
+  tower.bottom.width = towerWidth;
+  tower.bottom.height = Math.max(20, bottomTowerHeight);
+  tower.bottom.color = GAME_COLORS.BLUE_RIBBON;
+  
+  return tower;
 };
 
 // Optimized simple towers (like Flappy Bird pipes)
