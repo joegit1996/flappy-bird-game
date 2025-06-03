@@ -1,239 +1,245 @@
-# Kuwait Flyer 🇰🇼 طائر الكويت
+# Flappy Kuwait - Desert Adventure 🏜️
 
-A mobile-first tap-to-fly endless runner game celebrating Kuwait's heritage and beauty. Navigate a majestic falcon through iconic Kuwait Towers in this Flappy Bird-inspired adventure!
+A high-performance, mobile-friendly Flappy Bird-style game built with **PixiJS** and **TypeScript**. Features a beautiful desert theme with white and blue color palette, configurable physics, progressive difficulty, and smooth 60 FPS gameplay.
 
-## 🎮 Game Overview | نظرة عامة على اللعبة
+## 🎮 Features
 
-**Kuwait Flyer** is a tap-to-fly game that pays homage to Kuwait's national bird (the falcon) and iconic architecture. Guide your falcon through the famous Kuwait Towers while collecting points and achieving high scores.
+- **High Performance**: Built with PixiJS for WebGL-accelerated rendering
+- **Mobile Friendly**: Responsive design with touch controls
+- **Beautiful Desert Theme**: Animated sand dunes, cacti, and layered backgrounds
+- **Fully Configurable**: Easily adjust physics, difficulty, visuals, and spacing
+- **Progressive Difficulty**: Game gets harder as your score increases
+- **Smooth Animation**: Consistent 60 FPS performance
+- **Modern UI**: Clean, animated interface with hover effects
+- **Debug Mode**: Built-in debugging tools for development
 
-**طائر الكويت** هي لعبة اضغط للطيران تكرم الطائر الوطني للكويت (الصقر) والهندسة المعمارية الأيقونية. قد صقرك عبر أبراج الكويت الشهيرة أثناء جمع النقاط وتحقيق أعلى النتائج.
+## 🚀 Quick Start
 
-### 🎯 Objective | الهدف
-- Fly the falcon as far as possible through Kuwait Towers
-- Avoid crashing into the towers or ground
-- Beat your high score and challenge friends
-- Experience Kuwait's beauty through pixel art
+### Prerequisites
 
-### 🕹️ Controls | التحكم
-- **Tap anywhere** on the screen to make the falcon fly upward
-- **اضغط في أي مكان** على الشاشة لجعل الصقر يطير للأعلى
-- Release to let gravity pull the falcon down
-- That's it! Simple one-tap gameplay
+- **Node.js** (version 16 or higher)
+- **npm** or **yarn**
 
-## ✨ Features | المميزات
+### Installation
 
-### 🇰🇼 Kuwait-Themed Elements
-- **Falcon Character**: Kuwait's national bird with flag-colored wing patterns
-- **Kuwait Towers**: Iconic green towers inspired by Kuwait's famous landmarks
-- **Desert Landscape**: Beautiful sand dunes and Kuwait City skyline
-- **Bilingual Interface**: Arabic and English text throughout
-- **Cultural Sounds**: Kuwait-inspired audio effects
+1. Clone or download this repository
+2. Install dependencies:
 
-### 📱 Mobile Optimizations
-- **Portrait orientation** optimized for mobile phones
-- **Full-screen gameplay** that hides browser UI
-- **Touch-friendly controls** covering the entire screen
-- **Responsive design** for all modern mobile devices
-- **Haptic feedback** for immersive gameplay (when supported)
-- **No zoom issues** - prevents accidental pinching/zooming
-
-### 🎨 Visual Features
-- **Kuwait flag colors** throughout the design
-- **Parallax scrolling** background with Kuwait City silhouette
-- **Smooth animations** with 60fps gameplay
-- **Screen shake effects** on collisions
-- **Pixel art style** with clean, colorful graphics
-- **Dynamic rotation** of the falcon based on movement
-
-### 🎵 Audio Features
-- **Falcon wing flap** sounds inspired by traditional falconry
-- **Success tones** reminiscent of traditional oud music
-- **Desert wind** crash effects
-- **Game over sequence** with traditional Kuwait musical cues
-- **Optional sound toggle** (tap to enable on mobile)
-
-### 🏆 Gameplay Features
-- **Progressive difficulty** - game speeds up as you progress
-- **High score tracking** with local storage
-- **Daily messages** in Arabic and English
-- **New high score celebration** with special effects
-- **Instant restart** for addictive gameplay
-
-## 🚀 Setup & Installation | التثبيت والإعداد
-
-### Prerequisites | المتطلبات
-- Node.js (version 16 or higher)
-- npm or yarn
-- Modern web browser
-
-### Quick Start | البداية السريعة
-
-1. **Install dependencies | تثبيت التبعيات**:
 ```bash
 npm install
 ```
 
-2. **Start development server | تشغيل الخادم**:
+3. Start the development server:
+
 ```bash
 npm run dev
 ```
 
-3. **Open your browser | افتح المتصفح**:
-   - Go to `http://localhost:3000`
-   - Or use your computer's IP address for mobile testing
+4. Open your browser to `http://localhost:3000`
 
-4. **For mobile testing | للاختبار على الهاتف**:
-   - Connect your phone to the same WiFi network
-   - Visit `http://[YOUR_IP]:3000` on your phone
-
-### Building for Production | البناء للإنتاج
+### Building for Production
 
 ```bash
 npm run build
 ```
 
-The built files will be in the `dist` directory, ready for deployment.
+The built files will be in the `dist/` folder.
 
-## 🎮 How to Play | كيفية اللعب
+## 🎯 Controls
 
-### Getting Started | البداية
-1. **Start the game** by tapping "ابدأ اللعبة - START GAME"
-2. **Tap anywhere** on the screen to make the falcon fly up
-3. **Navigate** through the gaps between Kuwait Towers
-4. **Avoid** crashing into towers, ground, or ceiling
-5. **Score points** by successfully passing through tower gaps
+- **Desktop**: Click mouse or press Space/Enter to jump
+- **Mobile**: Tap screen to jump
+- **Pause**: Press Escape key
+- **Debug Mode**: Add `?debug=true` to URL
 
-### Tips for High Scores | نصائح للحصول على نقاط عالية
-- **Time your taps** - don't tap too rapidly
-- **Find your rhythm** - consistent tapping works better than frantic button mashing
-- **Stay calm** - the game gets faster as you progress
-- **Practice** - each crash teaches you something new!
+## ⚙️ Configuration Guide
 
-### Scoring System | نظام النقاط
-- **+1 point** for each Kuwait Tower gap successfully navigated
-- **High scores** are automatically saved locally
-- **New records** are celebrated with special animations
+All game settings can be easily modified in `src/config/GameConfig.ts`. Here's how to customize the most important aspects:
 
-## 🛠️ Technical Details | التفاصيل التقنية
+### 🐦 Player Physics
 
-### Built With | تم البناء باستخدام
-- **React 18** - Modern functional components with hooks
-- **Vite** - Fast development and building
-- **Canvas API** - Smooth 60fps game rendering
-- **Web Audio API** - Dynamic sound effect generation
-- **CSS3** - Kuwait-themed styling and animations
-- **Local Storage** - High score persistence
+```typescript
+player: {
+  size: 15,              // Bird size (radius in pixels)
+  gravity: 0.5,          // How fast the bird falls
+  jumpForce: -8.5,       // How strong the jump is (negative = upward)
+  maxVelocityY: 10,      // Terminal falling speed
+  startX: 100,           // Starting X position
+  startY: 300,           // Starting Y position
+}
+```
 
-### Game Architecture | بنية اللعبة
-- **GameCanvas.jsx** - Main game logic, physics, and rendering
-- **GameUI.jsx** - Bilingual UI overlays and menus
-- **gameUtils.js** - Game utilities, audio, and Kuwait-themed assets
-- **App.jsx** - Game state management and mobile optimizations
+**Tips:**
+- Increase `gravity` to make the game harder
+- Increase `jumpForce` (more negative) for higher jumps
+- Adjust `size` to change collision detection
 
-### Performance Features | مميزات الأداء
-- **60fps gameplay** using requestAnimationFrame
-- **Optimized collision detection** for smooth performance
-- **Memory management** with automatic cleanup
-- **Mobile-first optimizations** for touch devices
-- **Efficient canvas rendering** for all device types
+### 🚧 Obstacle Settings
 
-## 🇰🇼 Kuwait Cultural Elements | العناصر الثقافية الكويتية
+```typescript
+obstacles: {
+  width: 60,                    // Pipe width in pixels
+  gapSize: 150,                 // Vertical gap between pipes (IMPORTANT!)
+  horizontalSpacing: 250,       // Distance between obstacle pairs
+  speed: 2.5,                   // How fast obstacles move left
+  color: 0x0062FF,              // Obstacle color (hex)
+}
+```
 
-### Visual Heritage | التراث البصري
-- **Kuwait Towers** - Iconic green water towers reimagined as game obstacles
-- **Desert landscape** - Golden sand dunes reflecting Kuwait's geography
-- **Falcon design** - Traditional brown coloring with Kuwait flag patterns
-- **Islamic geometric patterns** - Subtle decorative elements on towers
-- **Kuwait City skyline** - Background silhouettes of famous landmarks
+**Tips:**
+- **Decrease `gapSize`** to make the game much harder
+- **Increase `horizontalSpacing`** to give players more time between obstacles
+- **Increase `speed`** for a faster-paced game
 
-### Audio Heritage | التراث الصوتي
-- **Falconry sounds** - Inspired by Kuwait's traditional falcon hunting
-- **Oud-inspired tones** - Success sounds reminiscent of traditional music
-- **Desert ambiance** - Crash sounds like desert winds
+### 📈 Difficulty Progression
 
-### Linguistic Heritage | التراث اللغوي
-- **Bilingual interface** - Arabic and English throughout
-- **Daily messages** - Rotating inspirational messages in both languages
-- **Cultural greetings** - Traditional Arabic phrases and their translations
-- **Right-to-left text** - Proper Arabic text direction support
+```typescript
+difficulty: {
+  enabled: true,                         // Enable/disable difficulty scaling
+  scoreThresholds: [5, 10, 20, 35, 50], // Scores at which difficulty increases
+  gapReduction: 10,                      // How much gap shrinks per level
+  speedIncrease: 0.3,                    // How much speed increases per level
+  minGapSize: 100,                       // Smallest gap allowed
+  maxSpeed: 4.5,                         // Maximum obstacle speed
+}
+```
 
-## 📱 Mobile Features | مميزات الهاتف المحمول
+**Tips:**
+- Set `enabled: false` to disable difficulty progression
+- Modify `scoreThresholds` to change when difficulty increases
+- Adjust `gapReduction` and `speedIncrease` to control difficulty curve
 
-### Touch Controls | عناصر التحكم باللمس
-- **Full-screen tap zone** - entire screen is interactive
-- **Optimized for one-handed play** - portrait orientation
-- **Prevents accidental zoom** and other mobile browser issues
-- **Haptic feedback** on supported devices
+### 🎨 Visual Customization
 
-### Platform Support | دعم المنصات
-- **iOS Safari** - Full support with haptic feedback
-- **Android Chrome** - Optimized performance
-- **Mobile Firefox** - Full compatibility
-- **Desktop browsers** - Space bar alternative for testing
+```typescript
+colors: {
+  primary: 0x0062FF,      // Main blue color
+  secondary: 0xFFFFFF,    // White
+  accent: 0x004ACC,       // Darker blue
+  sand: 0xF4E4BC,         // Desert sand color
+  cactus: 0x228B22,       // Cactus green
+}
+```
 
-### Progressive Web App Features
-- **Add to home screen** capability
-- **Full-screen mode** when launched from home screen
-- **Offline-ready** - plays without internet after first load
+### 🏜️ Background Settings
 
-## 🎯 Game Design Philosophy | فلسفة تصميم اللعبة
+```typescript
+background: {
+  scrollSpeed: 1,                    // Background scroll speed
+  layers: {
+    dunes: {
+      waveAmplitude: 30,             // How wavy the dunes are
+      waveFrequency: 3,              // Number of waves across screen
+    }
+  },
+  cacti: {
+    count: 5,                        // Number of cacti visible
+    spacing: 150,                    // Distance between cacti
+  }
+}
+```
 
-This game was created to:
-- **Celebrate Kuwait's heritage** through interactive entertainment
-- **Bridge cultures** with bilingual accessibility
-- **Provide clean, family-friendly** gaming experience
-- **Showcase traditional and modern Kuwait** in one experience
-- **Offer addictive yet respectful** gameplay
+## 🛠️ Development Features
 
-## 🐛 Browser Compatibility | توافق المتصفحات
+### Debug Mode
 
-**Fully Supported | مدعوم بالكامل:**
-- iOS Safari 12+
-- Android Chrome 80+
-- Desktop Chrome/Chromium
-- Desktop Firefox 70+
-- Desktop Safari 12+
+Add URL parameters to enable debugging features:
 
-**Required Features | المتطلبات:**
-- Canvas API support
-- Web Audio API (for sound)
-- Touch events (for mobile)
-- Local Storage
-- CSS3 transforms and animations
+- `?debug=true` - Enable debug mode
+- `?hitboxes=true` - Show collision boxes
+- `?fps=true` - Show FPS counter
 
-## 🔧 Development | التطوير
+Example: `http://localhost:3000?debug=true&hitboxes=true`
 
-### Adding New Features | إضافة مميزات جديدة
-1. **Kuwait-themed obstacles** - Add palm trees, traditional dhows, etc.
-2. **More bird options** - Houbara bustard, other regional birds
-3. **Seasonal themes** - National Day, Liberation Day special versions
-4. **Multiplayer modes** - Challenge friends and family
-5. **Achievement system** - Cultural milestones and badges
+### Project Structure
 
-### Customization | التخصيص
-- **Colors** - Modify `KUWAIT_COLORS` in `gameUtils.js`
-- **Physics** - Adjust `PHYSICS` constants for different difficulty
-- **Sounds** - Replace audio generation in `sounds` object
-- **Visuals** - Modify drawing functions for different art styles
+```
+src/
+├── config/
+│   └── GameConfig.ts      # All game configuration
+├── core/
+│   ├── GameManager.ts     # Main game loop and orchestration
+│   ├── Player.ts          # Bird character logic
+│   └── Obstacle.ts        # Pipe/obstacle system
+├── ui/
+│   ├── Background.ts      # Desert background rendering
+│   └── UI.ts              # User interface components
+└── main.ts               # Entry point
+```
 
-## 📄 License | الترخيص
+### Making Changes
 
-MIT License - Feel free to use this code for educational purposes or to create your own cultural gaming experiences!
+1. **Physics**: Edit `CONFIG.player` in `GameConfig.ts`
+2. **Obstacles**: Edit `CONFIG.obstacles` in `GameConfig.ts`
+3. **Difficulty**: Edit `CONFIG.difficulty` in `GameConfig.ts`
+4. **Colors**: Edit `CONFIG.colors` in `GameConfig.ts`
+5. **Background**: Edit `CONFIG.background` in `GameConfig.ts`
 
-## 🎉 Acknowledgments | شكر وتقدير
+After making changes, the game will automatically reload in development mode.
 
-- **Kuwait's rich heritage** that inspired this game
-- **Traditional falconry** and its cultural significance
-- **Kuwait Towers** - an architectural marvel and symbol of modern Kuwait
-- **The Arabic language** and its beautiful script
-- **Mobile gaming community** for inspiration and feedback
+## 📱 Mobile Optimization
 
-## 🚀 Play Now! | العب الآن!
+The game is fully optimized for mobile devices:
 
-Ready to soar through Kuwait's skies? Start the development server and begin your falcon's journey through the iconic Kuwait Towers!
+- **Touch Controls**: Tap anywhere to jump
+- **Responsive Design**: Automatically scales to fit screen
+- **Performance**: Optimized for mobile GPU performance
+- **Prevents Scrolling**: Disables unwanted touch behaviors
 
-**مستعد للطيران عبر سماء الكويت؟ ابدأ الخادم واستمتع برحلة الصقر عبر أبراج الكويت الأيقونية!**
+## 🎯 Game Balance Tips
+
+For the best gameplay experience:
+
+1. **Easy Mode**: `gapSize: 180`, `gravity: 0.4`, `jumpForce: -7`
+2. **Normal Mode**: `gapSize: 150`, `gravity: 0.5`, `jumpForce: -8.5` (default)
+3. **Hard Mode**: `gapSize: 120`, `gravity: 0.6`, `jumpForce: -9`
+4. **Expert Mode**: `gapSize: 100`, `gravity: 0.7`, `jumpForce: -10`
+
+## 🚀 Performance
+
+The game is optimized for high performance:
+
+- **WebGL Rendering**: Hardware-accelerated graphics via PixiJS
+- **Object Pooling**: Efficient memory management for obstacles
+- **Optimized Animations**: Smooth 60 FPS on most devices
+- **Minimal Draw Calls**: Efficient rendering pipeline
+
+## 🔧 Troubleshooting
+
+### Game Won't Start
+- Check browser console for errors
+- Ensure you're using a modern browser (Chrome, Firefox, Safari, Edge)
+- Try refreshing the page
+
+### Performance Issues
+- Close other browser tabs
+- Disable browser extensions
+- Check if hardware acceleration is enabled in browser settings
+
+### Mobile Issues
+- Ensure device orientation is locked
+- Try refreshing the page
+- Check if device supports WebGL
+
+## 📄 License
+
+MIT License - feel free to use this project for learning or commercial purposes.
+
+## 🤝 Contributing
+
+Contributions are welcome! Some ideas for improvements:
+
+- **Sound Effects**: Add audio feedback for jumps, scoring, and collisions
+- **Particle Effects**: Add visual flair with particle systems
+- **Themes**: Create different visual themes (night mode, winter, etc.)
+- **Power-ups**: Add temporary abilities or score multipliers
+- **Leaderboard**: Local storage high score system
+- **Achievements**: Unlock system for reaching milestones
+
+## 🎮 Game Design Credits
+
+Inspired by the classic Flappy Bird game with a modern desert twist. Built with love using PixiJS and TypeScript for a smooth, professional gaming experience.
 
 ---
 
-Made with ❤️ for Kuwait 🇰🇼 | مصنوع بحب للكويت الحبيبة 
+**Happy Gaming! 🎮✨** 
